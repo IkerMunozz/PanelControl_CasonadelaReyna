@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: casona-whatsapp-dashboard-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: REDIS_URL
+        sync: false
+      - key: REDIS_PASSWORD
+        sync: false
+      - key: N8N_SEND_WEBHOOK_URL
+        sync: false
+      - key: N8N_WEBHOOK_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
