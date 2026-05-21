@@ -50,9 +50,12 @@ export const registerIncoming = async (message: ChatMessage) => {
   }
 
   if (message.reason) {
-    await redis.set(`hotel-escalation:${message.phone}`, "escalated", { EX: 7200 });
-    await redis.set(`hotel-escalation-reason:${message.phone}`, message.reason, { EX: 7200 });
-    await recordEscalationStats(message.reason, new Date(message.timestamp));
+    const alreadyEscalated = (await redis.get(`hotel-escalation:${message.phone}`)) === "escalated";
+    if (!alreadyEscalated) {
+      await redis.set(`hotel-escalation:${message.phone}`, "escalated", { EX: 7200 });
+      await redis.set(`hotel-escalation-reason:${message.phone}`, message.reason, { EX: 7200 });
+      await recordEscalationStats(message.reason, new Date(message.timestamp));
+    }
   }
 };
 
