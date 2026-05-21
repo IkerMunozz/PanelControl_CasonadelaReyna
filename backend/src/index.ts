@@ -2,6 +2,7 @@ import cors from "cors";
 import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
+import path from "node:path";
 import { WebSocketServer } from "ws";
 import { connectRedis, redis } from "./redis.js";
 import { conversationsRouter } from "./routes/conversations.js";
@@ -14,7 +15,7 @@ const server = createServer(app);
 const wsServer = new WebSocketServer({ server });
 setWebSocketServer(wsServer);
 
-app.use(cors({ origin: process.env.CORS_ORIGIN ?? "http://localhost:5173" }));
+app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/api/health", async (_req, res) => {
@@ -29,6 +30,13 @@ app.get("/api/health", async (_req, res) => {
 app.use("/api/conversations", conversationsRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/webhook", webhookRouter);
+
+const frontendDist = path.resolve(import.meta.dirname, "../../frontend/dist");
+app.use(express.static(frontendDist));
+
+app.get("*", (_req, res) => {
+  res.sendFile(path.join(frontendDist, "index.html"));
+});
 
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const message = error instanceof Error ? error.message : "Unexpected error";
