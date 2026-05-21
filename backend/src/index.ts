@@ -2,6 +2,7 @@ import cors from "cors";
 import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
+import fs from "node:fs";
 import path from "node:path";
 import { WebSocketServer } from "ws";
 import { connectRedis, redis } from "./redis.js";
@@ -31,7 +32,16 @@ app.use("/api/conversations", conversationsRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/webhook", webhookRouter);
 
-const frontendDist = path.resolve(import.meta.dirname, "../../frontend-dist");
+const possiblePaths = [
+  path.resolve(process.cwd(), "frontend-dist"),
+  path.resolve(import.meta.dirname, "../frontend-dist"),
+  path.resolve(path.dirname(process.argv[1]), "../frontend-dist"),
+];
+const frontendDist = possiblePaths.find((p) => {
+  try { return fs.statSync(path.join(p, "index.html")).isFile(); }
+  catch { return false; }
+}) ?? possiblePaths[0];
+console.log("Frontend dist:", frontendDist);
 app.use(express.static(frontendDist));
 
 app.get("*", (_req, res) => {
