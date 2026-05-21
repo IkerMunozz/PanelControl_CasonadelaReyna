@@ -47,7 +47,10 @@ for (let offset = 0; offset < 30; offset += 1) {
     if (escalated) {
       const reason = randomItem(reasons);
       await recordEscalationStats(reason, timestamp);
-      if (offset < 2) await redis.set(`hotel-escalation:${phone}`, "escalated", { EX: 7200 });
+      if (offset < 2) {
+        await redis.set(`hotel-escalation:${phone}`, "escalated", { EX: 7200 });
+        await redis.set(`hotel-escalation-reason:${phone}`, reason, { EX: 7200 });
+      }
     } else {
       await recordResolvedByAi(timestamp);
     }

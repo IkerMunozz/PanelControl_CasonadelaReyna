@@ -6,19 +6,29 @@ import type { ChatMessage } from "../types.js";
 
 export const webhookRouter = Router();
 
-function extractMessage(body: any): ChatMessage {
+function extractMessage(body: any): ChatMessage | undefined {
   const phone = String(body.phone ?? body.from ?? body.contact?.phone ?? body.messages?.[0]?.from ?? "");
   const text = String(body.message ?? body.text ?? body.body ?? body.messages?.[0]?.text?.body ?? "");
   if (!phone || !text) {
-    throw new Error("phone and message are required");
+    return undefined;
   }
+
+  let direction = body.direction;
+  if (!direction) {
+    const role = body.role || body.data?.role;
+    const type = body.type || body.data?.type;
+    if (role === "assistant" || type === "ai") direction = "ai";
+    else if (role === "human" || role === "user" || type === "human") direction = "guest";
+    else direction = "guest";
+  }
+
   return {
-    id: String(body.id ?? body.messageId ?? crypto.randomUUID()),
+    id: String(body.id ?? body.messageId ?? body.data?.id ?? crypto.randomUUID()),
     phone,
     text,
-    direction: body.direction ?? "guest",
-    timestamp: body.timestamp ?? new Date().toISOString(),
-    source: "n8n",
+    direction,
+    timestamp: body.timestamp ?? body.createdAt ?? body.data?.additional_kwargs?.timestamp ?? new Date().toISOString(),
+    source: body.source ?? "n8n",
     reason: body.reason
   };
 }
@@ -40,6 +50,8 @@ export const registerIncoming = async (message: ChatMessage) => {
   }
 
   if (message.reason) {
+    await redis.set(`hotel-escalation:${message.phone}`, "escalated", { EX: 7200 });
+    await redis.set(`hotel-escalation-reason:${message.phone}`, message.reason, { EX: 7200 });
     await recordEscalationStats(message.reason, new Date(message.timestamp));
   }
 };
@@ -47,6 +59,9 @@ export const registerIncoming = async (message: ChatMessage) => {
 webhookRouter.post("/incoming", async (req, res, next) => {
   try {
     const message = extractMessage(req.body);
+    if (!message) {
+      return res.json({ received: true, ignored: true });
+    }
     await registerIncoming(message);
     broadcast({ type: "NEW_MESSAGE", phone: message.phone, message, timestamp: message.timestamp });
     res.json({ received: true });

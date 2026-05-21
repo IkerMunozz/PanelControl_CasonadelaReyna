@@ -97,12 +97,12 @@ export async function getDailyStats(date: Date): Promise<DailyStats> {
     redis.get(`stats:daily:${day}:resolved_by_ai`),
     redis.lRange(`stats:daily:${day}:response_ms`, 0, -1)
   ]);
-  const total = Number(totalRaw ?? 0);
+  const total = Math.max(Number(totalRaw ?? 0), Number(escalatedRaw ?? 0));
   const escalated = Number(escalatedRaw ?? 0);
   const resolved_by_ai = Number(resolvedRaw ?? Math.max(total - escalated, 0));
   const values = responseValues.map(Number).filter(Number.isFinite);
   const avg_response_ms = values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;
-  const resolution_rate = total ? Math.round((resolved_by_ai / total) * 1000) / 10 : 0;
+  const resolution_rate = total ? Math.min(Math.round((resolved_by_ai / total) * 100), 100) : 0;
   return { total, escalated, resolved_by_ai, avg_response_ms, resolution_rate };
 }
 

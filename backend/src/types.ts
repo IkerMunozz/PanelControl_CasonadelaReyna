@@ -16,6 +16,7 @@ export interface ConversationSummary {
   ttl: number;
   lastMessage: string;
   timestamp: string;
+  reason?: string;
 }
 
 export interface WsEvent {

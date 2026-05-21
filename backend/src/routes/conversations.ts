@@ -2,7 +2,7 @@ import axios from "axios";
 import { Router } from "express";
 import { redis, scanKeys } from "../redis.js";
 import { broadcast } from "../ws.js";
-import { recordEscalationStats } from "../stats-utils.js";
+import { recordEscalationStats, recordIncomingStats, recordResolvedByAi } from "../stats-utils.js";
 import type { ChatMessage, ConversationStatus, ConversationSummary } from "../types.js";
 
 export const conversationsRouter = Router();
@@ -18,15 +18,29 @@ function maskPhone(phone: string) {
 function parseMessage(raw: string, phone: string): ChatMessage | undefined {
   try {
     const value = JSON.parse(raw);
-    const text = value.text ?? value.message ?? value.content ?? value.kwargs?.content ?? "";
-    const direction = value.direction ?? (value.role === "assistant" ? "ai" : value.role === "human" ? "guest" : "guest");
+    const text = value.text ?? value.message ?? value.content ?? value.kwargs?.content ?? value.data?.content ?? "";
+    
+    let direction = value.direction;
+    if (!direction) {
+      const role = value.role || value.data?.role;
+      const type = value.type || value.data?.type;
+      
+      if (role === "assistant" || type === "ai") {
+        direction = "ai";
+      } else if (role === "human" || role === "user" || type === "human") {
+        direction = "guest";
+      } else {
+        direction = "guest";
+      }
+    }
+
     return {
-      id: value.id ?? crypto.randomUUID(),
+      id: value.id ?? value.data?.id ?? crypto.randomUUID(),
       phone,
       text: String(text),
       direction,
-      timestamp: value.timestamp ?? value.createdAt ?? new Date().toISOString(),
-      source: value.source
+      timestamp: value.timestamp ?? value.createdAt ?? value.data?.additional_kwargs?.timestamp ?? new Date().toISOString(),
+      source: value.source || value.data?.additional_kwargs?.source
     };
   } catch {
     return {
@@ -63,26 +77,35 @@ async function readN8nMemory(phone: string) {
   return [];
 }
 
-async function getStatus(phone: string): Promise<{ status: ConversationStatus; ttl: number }> {
+async function getStatus(phone: string): Promise<{ status: ConversationStatus; ttl: number; reason?: string }> {
   const key = `hotel-escalation:${phone}`;
-  const [value, ttl] = await Promise.all([redis.get(key), redis.ttl(key)]);
-  return { status: value === "escalated" ? "escalated" : "normal", ttl };
+  const reasonKey = `hotel-escalation-reason:${phone}`;
+  const [value, ttl, reasonRaw] = await Promise.all([redis.get(key), redis.ttl(key), redis.get(reasonKey)]);
+  return { status: value === "escalated" ? "escalated" : "normal", ttl, reason: reasonRaw ?? undefined };
 }
 
 async function loadSummary(phone: string): Promise<ConversationSummary> {
-  const [{ status, ttl }, dashboardMessages, historyMessages, memoryMessages] = await Promise.all([
+  const [{ status, ttl, reason }, dashboardMessages, historyMessages, memoryMessages] = await Promise.all([
     getStatus(phone),
     readListMessages(`messages:${phone}`, phone),
     readListMessages(`chat_history:${phone}`, phone),
     readN8nMemory(phone)
   ]);
   const messages = [...dashboardMessages, ...historyMessages, ...memoryMessages].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
+  const lastMsg = messages[0];
+  let lastText = lastMsg?.text ?? "";
+  if (lastMsg) {
+    if (lastMsg.direction === "ai") lastText = `Bot: ${lastText}`;
+    else if (lastMsg.direction === "agent") lastText = `Tú: ${lastText}`;
+  }
+  
   return {
     phone,
     status,
     ttl,
-    lastMessage: messages[0]?.text ?? "",
-    timestamp: messages[0]?.timestamp ?? new Date(0).toISOString()
+    lastMessage: lastText,
+    timestamp: lastMsg?.timestamp ?? new Date(0).toISOString(),
+    reason
   };
 }
 
@@ -142,6 +165,7 @@ conversationsRouter.post("/:phone/escalate", async (req, res, next) => {
     const phone = req.params.phone;
     const reason = req.body?.reason ?? "request_human";
     await redis.set(`hotel-escalation:${phone}`, "escalated", { EX: 7200 });
+    await redis.set(`hotel-escalation-reason:${phone}`, reason, { EX: 7200 });
     await recordEscalationStats(reason);
     broadcast({ type: "ESCALATION_CHANGED", phone, status: "escalated", timestamp: new Date().toISOString() });
     res.json({ success: true });
@@ -153,9 +177,12 @@ conversationsRouter.post("/:phone/escalate", async (req, res, next) => {
 conversationsRouter.post("/:phone/resolve", async (req, res, next) => {
   try {
     const phone = req.params.phone;
+    const now = new Date();
     await redis.del(`hotel-escalation:${phone}`);
-    await redis.incr(`stats:resolved:${new Date().toISOString().slice(0, 10)}`);
-    broadcast({ type: "ESCALATION_CHANGED", phone, status: "resolved", timestamp: new Date().toISOString() });
+    await redis.del(`hotel-escalation-reason:${phone}`);
+    await redis.incr(`stats:resolved:${now.toISOString().slice(0, 10)}`);
+    await recordResolvedByAi(now);
+    broadcast({ type: "ESCALATION_CHANGED", phone, status: "resolved", timestamp: now.toISOString() });
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -178,6 +205,8 @@ conversationsRouter.post("/:phone/send", async (req, res, next) => {
       timestamp: new Date().toISOString(),
       source: "dashboard"
     };
+    const isEscalated = (await redis.get(`hotel-escalation:${phone}`)) === "escalated";
+    await recordIncomingStats(phone, message, isEscalated, new Date(chatMessage.timestamp));
     await redis.lPush(`messages:${phone}`, JSON.stringify(chatMessage));
     await redis.lTrim(`messages:${phone}`, 0, 99);
     broadcast({ type: "NEW_MESSAGE", phone, message: chatMessage, timestamp: chatMessage.timestamp });

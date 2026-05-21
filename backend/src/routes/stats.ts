@@ -109,19 +109,30 @@ statsRouter.get("/peak-hours", async (_req, res, next) => {
     let peakDay = 0;
     let peakHour = 8;
 
+    const now = new Date();
+    const allKeys: string[] = [];
+    const keyMap: { date: Date; dayIndex: number; hour: number }[] = [];
     for (let offset = 0; offset < 14; offset += 1) {
-      const date = addDays(new Date(), -offset);
-      const dayIndex = date.getDay();
+      const date = addDays(now, -offset);
       const day = formatDate(date);
+      const dayIndex = date.getDay();
       for (const hour of hours) {
         const hh = String(hour).padStart(2, "0");
-        const count = (await getCount(`stats:hourly:${day}:${hh}:normal`)) + (await getCount(`stats:hourly:${day}:${hh}:escalated`));
-        matrix[dayIndex][hour - 8] += count;
-        if (matrix[dayIndex][hour - 8] > max) {
-          max = matrix[dayIndex][hour - 8];
-          peakDay = dayIndex;
-          peakHour = hour;
-        }
+        allKeys.push(`stats:hourly:${day}:${hh}:normal`);
+        allKeys.push(`stats:hourly:${day}:${hh}:escalated`);
+        keyMap.push({ date, dayIndex, hour });
+        keyMap.push({ date, dayIndex, hour });
+      }
+    }
+    const values = await redis.mGet(allKeys);
+    for (let i = 0; i < keyMap.length; i++) {
+      const { dayIndex, hour } = keyMap[i];
+      const val = Number(values[i] ?? 0);
+      matrix[dayIndex][hour - 8] += val;
+      if (matrix[dayIndex][hour - 8] > max) {
+        max = matrix[dayIndex][hour - 8];
+        peakDay = dayIndex;
+        peakHour = hour;
       }
     }
     const normalized = matrix.map((row) => row.map((value) => (max ? Math.round((value / max) * 10) : 0)));
