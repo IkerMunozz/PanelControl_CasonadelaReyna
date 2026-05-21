@@ -3,7 +3,7 @@ services:
     name: casona-whatsapp-dashboard-backend
     runtime: node
     rootDir: backend
-    buildCommand: npm ci && cd ../frontend && npm ci && npm run build && cd ../backend && npm run build
+    buildCommand: cd ../frontend && npm ci && npm run build && cp -r dist ../backend/frontend-dist && cd ../backend && npm ci && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:

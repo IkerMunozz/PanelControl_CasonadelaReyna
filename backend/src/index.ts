@@ -31,7 +31,7 @@ app.use("/api/conversations", conversationsRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/webhook", webhookRouter);
 
-const frontendDist = path.resolve(import.meta.dirname, "../../frontend/dist");
+const frontendDist = path.resolve(import.meta.dirname, "../../frontend-dist");
 app.use(express.static(frontendDist));
 
 app.get("*", (_req, res) => {
