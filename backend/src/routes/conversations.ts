@@ -22,16 +22,9 @@ function parseMessage(raw: string, phone: string): ChatMessage | undefined {
     
     let direction = value.direction;
     if (!direction) {
-      const role = value.role || value.data?.role;
-      const type = value.type || value.data?.type;
-      
-      if (role === "assistant" || type === "ai") {
-        direction = "ai";
-      } else if (role === "human" || role === "user" || type === "human") {
-        direction = "guest";
-      } else {
-        direction = "guest";
-      }
+      const role = String(value.role || value.data?.role || value.type || "").toLowerCase();
+      const isAI = ["assistant", "ai", "bot", "system"].includes(role);
+      direction = isAI ? "ai" : "guest";
     }
 
     const timestampRaw = value.timestamp ?? value.createdAt ?? value.data?.additional_kwargs?.timestamp;
