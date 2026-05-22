@@ -38,17 +38,24 @@ const possiblePaths = [
   path.resolve(process.cwd(), "backend/frontend-dist"),
   path.resolve(import.meta.dirname, "../../frontend-dist"),
   path.resolve(import.meta.dirname, "../frontend-dist"),
+  "/app/frontend-dist",
+  "/app/backend/frontend-dist",
 ];
+
+console.log("Current working directory:", process.cwd());
+console.log("Looking for frontend in:", possiblePaths);
 
 const frontendDist = possiblePaths.find((p) => {
   try {
-    return fs.existsSync(path.join(p, "index.html"));
+    const exists = fs.existsSync(path.join(p, "index.html"));
+    console.log(`Checking ${p}: ${exists ? "FOUND" : "NOT FOUND"}`);
+    return exists;
   } catch {
     return false;
   }
 }) || path.resolve(process.cwd(), "frontend-dist");
 
-console.log("Frontend dist path found:", frontendDist);
+console.log("Final Frontend dist path:", frontendDist);
 app.use(express.static(frontendDist));
 
 app.get("*", (_req, res) => {
