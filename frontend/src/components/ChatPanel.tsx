@@ -49,7 +49,9 @@ export function ChatPanel({
             <h1 className="text-xl font-semibold text-gray-950 dark:text-white">{maskPhone(detail.phone)}</h1>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button disabled={busy} onClick={() => change("resolve")} className="h-10 rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-700 disabled:opacity-50 dark:border-gray-700 dark:text-gray-200">Resolver escalación</button>
+            {isEscalated && (
+              <button disabled={busy} onClick={() => change("resolve")} className="h-10 rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-700 disabled:opacity-50 dark:border-gray-700 dark:text-gray-200">Resolver escalación</button>
+            )}
             <button disabled={busy} onClick={() => change("escalate")} className="h-10 rounded-lg bg-casona-amber px-3 text-sm font-medium text-white disabled:opacity-50">Escalar manualmente</button>
             <button onClick={() => setModalOpen(true)} className="flex h-10 items-center gap-2 rounded-lg bg-casona-teal px-3 text-sm font-medium text-white"><Send size={16} /> Enviar mensaje</button>
           </div>
