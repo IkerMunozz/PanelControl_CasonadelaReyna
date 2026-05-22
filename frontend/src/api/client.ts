@@ -1,7 +1,7 @@
 import axios from "axios";
 import type { ConversationDetail, ConversationSummary, DashboardStats, OverviewStats } from "../types";
 
-const baseURL = import.meta.env.VITE_API_URL ?? "http://localhost:3001/api";
+const baseURL = import.meta.env.VITE_API_URL || "/api";
 
 export const api = axios.create({ baseURL });
 
