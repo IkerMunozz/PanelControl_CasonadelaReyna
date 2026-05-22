@@ -33,8 +33,22 @@ app.use("/api/conversations", conversationsRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/webhook", webhookRouter);
 
-const frontendDist = path.resolve(process.cwd(), "frontend-dist");
-console.log("Frontend dist path:", frontendDist);
+const possiblePaths = [
+  path.resolve(process.cwd(), "frontend-dist"),
+  path.resolve(process.cwd(), "backend/frontend-dist"),
+  path.resolve(import.meta.dirname, "../../frontend-dist"),
+  path.resolve(import.meta.dirname, "../frontend-dist"),
+];
+
+const frontendDist = possiblePaths.find((p) => {
+  try {
+    return fs.existsSync(path.join(p, "index.html"));
+  } catch {
+    return false;
+  }
+}) || path.resolve(process.cwd(), "frontend-dist");
+
+console.log("Frontend dist path found:", frontendDist);
 app.use(express.static(frontendDist));
 
 app.get("*", (_req, res) => {
