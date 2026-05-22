@@ -101,7 +101,7 @@ export async function getDailyStats(date: Date): Promise<DailyStats> {
   const escalated = Number(escalatedRaw ?? 0);
   const resolved_by_ai = Number(resolvedRaw ?? Math.max(total - escalated, 0));
   const values = responseValues.map(Number).filter(Number.isFinite);
-  const avg_response_ms = values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;
+  const avg_response_ms = values.length ? Math.round(values.reduce((sum: number, value: number) => sum + value, 0) / values.length) : 0;
   const resolution_rate = total ? Math.min(Math.round((resolved_by_ai / total) * 100), 100) : 0;
   return { total, escalated, resolved_by_ai, avg_response_ms, resolution_rate };
 }
@@ -115,7 +115,7 @@ export async function aggregateSortedSets(keys: string[]) {
   const totals = new Map<string, number>();
   for (const key of keys) {
     const rows = await redis.zRangeWithScores(key, 0, -1);
-    rows.forEach((row) => totals.set(row.value, (totals.get(row.value) ?? 0) + row.score));
+    rows.forEach((row: { value: string; score: number }) => totals.set(row.value, (totals.get(row.value) ?? 0) + row.score));
   }
   return [...totals.entries()].sort((a, b) => b[1] - a[1]);
 }

@@ -172,7 +172,7 @@ statsRouter.get("/export", async (req, res, next) => {
     for (const key of messageKeys) {
       const phone = key.replace(/^messages:/, "");
       const values = await redis.lRange(key, 0, -1);
-      const messages = values.map((value) => JSON.parse(value));
+      const messages = values.map((value: string) => JSON.parse(value));
       const latest = messages[0];
       if (!latest) continue;
       const ageDays = (Date.now() - Date.parse(latest.timestamp)) / 86400000;

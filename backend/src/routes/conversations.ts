@@ -55,7 +55,7 @@ function parseMessage(raw: string, phone: string): ChatMessage | undefined {
 
 async function readListMessages(key: string, phone: string) {
   const values = await redis.lRange(key, 0, 99);
-  return values.map((value) => parseMessage(value, phone)).filter(Boolean) as ChatMessage[];
+  return values.map((value: string) => parseMessage(value, phone)).filter(Boolean) as ChatMessage[];
 }
 
 async function readN8nMemory(phone: string) {
