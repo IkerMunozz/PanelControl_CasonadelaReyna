@@ -22,12 +22,15 @@ function extractMessage(body: any): ChatMessage | undefined {
     else direction = "guest";
   }
 
+  const timestampRaw = body.timestamp ?? body.createdAt ?? body.data?.additional_kwargs?.timestamp;
+  const timestamp = (timestampRaw && !isNaN(Date.parse(timestampRaw))) ? timestampRaw : new Date().toISOString();
+
   return {
     id: String(body.id ?? body.messageId ?? body.data?.id ?? crypto.randomUUID()),
     phone,
     text,
     direction,
-    timestamp: body.timestamp ?? body.createdAt ?? body.data?.additional_kwargs?.timestamp ?? new Date().toISOString(),
+    timestamp,
     source: body.source ?? "n8n",
     reason: body.reason
   };

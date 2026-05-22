@@ -34,12 +34,15 @@ function parseMessage(raw: string, phone: string): ChatMessage | undefined {
       }
     }
 
+    const timestampRaw = value.timestamp ?? value.createdAt ?? value.data?.additional_kwargs?.timestamp;
+    const timestamp = (timestampRaw && !isNaN(Date.parse(timestampRaw))) ? timestampRaw : new Date().toISOString();
+
     return {
       id: value.id ?? value.data?.id ?? crypto.randomUUID(),
       phone,
       text: String(text),
       direction,
-      timestamp: value.timestamp ?? value.createdAt ?? value.data?.additional_kwargs?.timestamp ?? new Date().toISOString(),
+      timestamp,
       source: value.source || value.data?.additional_kwargs?.source
     };
   } catch {
