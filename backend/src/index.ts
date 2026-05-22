@@ -5,11 +5,12 @@ import { createServer } from "http";
 import fs from "node:fs";
 import path from "node:path";
 import { WebSocketServer } from "ws";
-import { connectRedis, redis } from "./redis.js";
+import { connectRedis, redis, useMock } from "./redis.js";
 import { conversationsRouter } from "./routes/conversations.js";
 import { statsRouter } from "./routes/stats.js";
 import { webhookRouter } from "./routes/webhook.js";
 import { setWebSocketServer } from "./ws.js";
+import { seedMockData } from "./seed.js";
 
 const app = express();
 const server = createServer(app);
@@ -32,16 +33,8 @@ app.use("/api/conversations", conversationsRouter);
 app.use("/api/stats", statsRouter);
 app.use("/api/webhook", webhookRouter);
 
-const possiblePaths = [
-  path.resolve(process.cwd(), "frontend-dist"),
-  path.resolve(import.meta.dirname, "../frontend-dist"),
-  path.resolve(path.dirname(process.argv[1]), "../frontend-dist"),
-];
-const frontendDist = possiblePaths.find((p) => {
-  try { return fs.statSync(path.join(p, "index.html")).isFile(); }
-  catch { return false; }
-}) ?? possiblePaths[0];
-console.log("Frontend dist:", frontendDist);
+const frontendDist = path.resolve(process.cwd(), "frontend-dist");
+console.log("Frontend dist path:", frontendDist);
 app.use(express.static(frontendDist));
 
 app.get("*", (_req, res) => {
@@ -56,6 +49,9 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
 const port = Number(process.env.PORT ?? 3001);
 
 await connectRedis();
+if (useMock) {
+  await seedMockData();
+}
 server.listen(port, () => {
   console.log(`Casona dashboard API listening on http://localhost:${port}`);
 });

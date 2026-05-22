@@ -7,7 +7,10 @@ export const api = axios.create({ baseURL });
 
 export { baseURL };
 
-export const wsURL = baseURL.replace(/^http/, "ws").replace(/\/api$/, "");
+const loc = typeof window !== "undefined" ? `${window.location.protocol.replace("http", "ws")}//${window.location.host}` : "";
+export const wsURL = baseURL.startsWith("/") 
+  ? `${loc}/ws` 
+  : baseURL.replace(/^http/, "ws").replace(/\/api$/, "/ws");
 
 export async function fetchConversations(params?: { status?: string; page?: number; limit?: number; search?: string }) {
   const { data } = await api.get<{ data: ConversationSummary[]; total: number; page: number; limit: number }>("/conversations", { params });
